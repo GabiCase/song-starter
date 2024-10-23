@@ -9,6 +9,10 @@ api_key = os.getenv("OPENAI_API_KEY")
 # Configurar la clave de API en OpenAI
 OpenAI.api_key = api_key
 
+client = OpenAI(
+ api_key=api_key,
+)
+
 
 def get_chords_chat(cancion, artista):
     # Inicializa el cliente con la clave API desde las variables de entorno
@@ -81,3 +85,48 @@ def chat_gpt_theme(cancion, artista):
 
     # Retorna el contenido de la respuesta
     return chat_completion.choices[0].message.content
+
+
+### Verso 1
+
+def create_song(lyrics_list, chord_wheels, details, model="gpt-4o", temperature=1, max_tokens=2048):
+    response = client.chat.completions.create(
+    model=model,
+    messages=[
+        {
+            "role": "system",
+            "content": "Eres un asistente experto en escribir canciones. A continuación, te proporcionaré letras de canciones, ruedas de acordes, instrumentos a usar, tempo y potencia de la canción. Usa estos detalles con libertad para crear una nueva canción corta con una estructura clara y bien definida, que se exprese en el mismo tono y transmita una actitud similar."
+        },
+        {
+            "role": "user",
+            "content": f"""
+    Basándote en: {lyrics_list},{chord_wheels}** y **{details}**, escribe una canción siguiendo esta estructura y formateándola en **markdown** de manera que quede visualmente clara y atractiva:
+
+    # Título de la canción: 
+    Proporciona un título basado en las temáticas dadas y las letras.
+
+    **Tempo:** 
+    **Instrumentos principales:** 
+
+    ### Letra y acordes:
+
+    1. **Verso 1**: Un breve verso de 4 líneas para introducir el tema.
+    2. **Coro**: Un coro de 4 líneas que resuma el sentimiento principal de la canción.
+    3. **Verso 2**: Otro verso corto de 4 líneas que desarrolle el tema o lo varíe.
+    4. **Coro final**: Repite el coro y modifícalo ligeramente para cerrar la canción.
+
+    **Nota**: La canción debe ser corta, enfocada en transmitir una idea clara y contundente en menos de 16 líneas. El tempo, los acordes y los instrumentos deben reflejar el estilo general que se basa en {lyrics_list} y {chord_wheels}.
+    """
+        }
+    ],
+    temperature=temperature,
+    max_tokens=max_tokens,
+    top_p=1,
+    frequency_penalty=0,
+    presence_penalty=0,
+    response_format={
+        "type": "text"
+    }
+    )
+
+    return response.choices[0].message.content

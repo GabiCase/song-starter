@@ -66,13 +66,19 @@ def main():
     index = setup_index(pc)
     index_name= pc.list_indexes().indexes[0].name
     
-    st.title("Song-starter")
-    # Llamar a la función para obtener la entrada del usuario
-    input_song, input_artist = get_user_input_streamlit()
+    # Título principal de la app
+    st.title("🎵 Song-starter: Inspiración musical 🎵")
+    st.markdown("**Crea nuevas canciones inspiradas en tus referencias**")
 
-        # Añadir un botón para realizar la búsqueda
-    if st.button('Buscar'):
-        input_track_id = handle_input_search_streamlit(input_song, input_artist)
+    # Recoger la entrada del usuario (canción y artista)
+    with st.sidebar:
+        st.header("🔍 Buscar canción")
+        input_song, input_artist = get_user_input_streamlit()
+
+        if st.button('Buscar'):
+            input_track_id = handle_input_search_streamlit(input_song, input_artist)
+        else:
+            st.write("Introduce el nombre de una canción y artista para empezar.")
         
     
     if input_track_id != 0:
@@ -81,71 +87,73 @@ def main():
 
         # Crear DataFrame inicial con información de la canción
         input_data = pd.DataFrame({'id': [input_track_id], 'name': input_song, 'artists': input_artist})
-        st.write("")
-        st.write("")
 
-        st.markdown(f"""
-            <p style='font-size:18px;'> Si te gusta <strong>{input_song}</strong> de <strong>{input_artist}</strong> <br> puedo recomendarte algunas canciones ...</p>
-            """, unsafe_allow_html=True)
-
+        st.markdown(f"### 🎶 Si te gusta **{input_song}** de **{input_artist}**")
+        st.write("### Puedo recomendarte:")
 
         with st.spinner('Buscando recomendaciones...'):
             # Obtener canciones similares (puede tardar un poco)
             tracks_data = get_similar_songs(input_track_id, 4)
-        
 
-        # Initialize an empty list for track names and artists
+        cols = st.columns(2)
+
         # Lista para almacenar los nombres de las canciones y artistas
-        names = []
+        names = [f"**{track['name']}** de {track['artists']}" for track in tracks_data]
 
-        # Itera sobre los datos de las canciones y recopila nombres y artistas
-        for track in tracks_data:
-            names.append(f"**{track['name']}** de {track['artists']}")  # Negrita para nombres y artistas
-
-        # Muestra cada canción y artista uno por uno con un retraso
-        for name in names:
-            st.markdown(name)  # Muestra el nombre y artista en negrita
-            time.sleep(2)
+        # Muestra cada canción y artista uno por uno con un retraso en columnas
+        for i, name in enumerate(names):
+            with cols[i % 2]:
+                st.markdown(name)  # Muestra el nombre y artista en negrita
+            time.sleep(2)  # Pausa de 2 segundos antes de mostrar la siguiente
 
         st.write("")
         st.write("")
 
-        st.markdown("*Vamos a investigar más detalles de tu canción:*")
+        # Crear un contenedor para el mensaje temporal
+        message_placeholder = st.empty()
+
+        # Mostrar el mensaje inicial en el contenedor
+        message_placeholder.markdown("### 🔍 Qué podemos encontrar de esta canción...")
 
         tracks_data = pd.DataFrame(tracks_data)
-        
+
         # Filtrar IDs existentes en Pinecone
         filter_existing_vector_id(index, tracks_data) 
         tracks_data.reset_index(drop=True, inplace=True)
-        
+
         # Leer archivo CSV temporal
         csv = pd.read_csv('mi_archivo_temporal.csv')
         df = check_track_csv(tracks_data, csv)
         df.reset_index(drop=True, inplace=True)
-        
-        with st.spinner('Buscando acordes...'):
-            # Agregar información sobre acordes e instrumentos
+
+        # Mostrar mensaje mientras se buscan acordes
+        with st.spinner('🎶 Buscando acordes...'):
             # Agregar información sobre acordes
-            add_info_list_df(input_data, get_chords_chat, 'chords')  # Obtener acordes para la canción de entrada
-            add_info_list_df(df, get_chords_chat, 'chords')          # Obtener acordes para las canciones similares
+            add_info_list_df(input_data, get_chords_chat, 'chords')  # Acordes de la canción de entrada
+            add_info_list_df(df, get_chords_chat, 'chords')          # Acordes para canciones similares
 
-        with st.spinner('Qué instrumentos usan...'):
-        # Agregar información sobre instrumentos
-            add_info_list_df(input_data, get_instruments_chat, 'instruments')  # Obtener instrumentos para la canción de entrada
-            add_info_list_df(df, get_instruments_chat, 'instruments')          # Obtener instrumentos para las canciones similares
+        # Mostrar mensaje mientras se buscan los instrumentos
+        with st.spinner('🎸 Identificando instrumentos...'):
+            # Agregar información sobre instrumentos
+            add_info_list_df(input_data, get_instruments_chat, 'instruments')  # Instrumentos de la canción de entrada
+            add_info_list_df(df, get_instruments_chat, 'instruments') 
 
-        with st.spinner('De qué trata'):
+        # Mostrar spinner con un mensaje personalizado mientras se obtienen los datos
+        with st.spinner('🧐 A ver de qué trata...'):
             # Obtener características y análisis de audio para la canción de entrada
             get_audio_features(input_data)
             get_audio_analysis(input_data)
-            input_data,theme= insert_lyrics_db(input_data)
-        
-        st.write("")
-        st.write("")
+            input_data, theme = insert_lyrics_db(input_data)
 
-        # Mostrar el mensaje personalizado y el tema
-        st.write("Así que este es el tema que te interesa")
-        st.write(f"{theme}...")
+        # Eliminar el mensaje al finalizar el proceso
+        message_placeholder.empty()
+
+        # Añadir espacio para mejorar la separación visual
+        st.write("")
+        st.write("")
+        # Mensaje personalizado sobre el tema de interés
+        st.markdown("### 🎵 Así que este es el tema que te interesa:")
+        st.markdown(f"*{theme}...*")
 
         # Filtrar acordes no nulos de input_data
         input_data['chords'].dropna(inplace=True)
@@ -155,8 +163,6 @@ def main():
         get_audio_features(df)
         get_audio_analysis(df)
         insert_lyrics_db(df) 
-
-        st.write("Deja que busque algo más que pueda servirnos")
 
         # Preparar DataFrame vectorial
         df_vectorial = df.copy()
@@ -343,7 +349,7 @@ def main():
             # Agregar cada texto generado a la lista
             print(f"Lyrics: {match['metadata']['theme']} {match['id']} Score: {match['score']}")
 
-        
+        st.markdown("### 🎤 Nueva canción basada en tus preferencias")
         nueva_cancion = create_song(lyrics_list, chord_wheels, details)
 
         st.markdown(nueva_cancion)

@@ -31,34 +31,43 @@ def extract_chat_list(respuesta_chat):
     return acordes_planos if acordes_planos else None
 
 # Función para obtener la información y almacenarla en una columna
-def add_info_list_df(df, function, column_name):
+
+def add_info_list_df(df, function, column_name, max_retries=3):
     df[column_name] = ''  # Añade la columna vacía al DataFrame
 
     if len(df) > 0:
         for i in range(len(df)):
             titulo = df.at[i, 'name']
             artista = df.at[i, 'artists']
+            intentos = 0
+            while intentos < max_retries:
+                try:
+                    # Llamamos a la función que se pasa como argumento para obtener la información
+                    respuesta = function(titulo, artista)
+                    respuesta = extract_chat_list(respuesta)
 
-            try:
-                # Llamamos a la función que se pasa como argumento para obtener la información
-                respuesta = function(titulo, artista)
-                respuesta = extract_chat_list(respuesta)
+                    # Verificamos la longitud de la respuesta dependiendo de la columna
+                    if column_name == 'chords' and (respuesta is None or len(respuesta) < 8):
+                        intentos += 1  # Incrementa los intentos si no es válida
+                        print(f"Intento {intentos} fallido para '{titulo}' de '{artista}' (acordes insuficientes)")
+                    elif column_name == 'instruments' and (respuesta is None or len(respuesta) < 2):
+                        intentos += 1  # Incrementa los intentos si no es válida
+                        print(f"Intento {intentos} fallido para '{titulo}' de '{artista}' (instrumentos insuficientes)")
+                    else:
+                        # Si la respuesta es válida, almacenamos la información procesada en el DataFrame
+                        df.at[i, column_name] = respuesta
+                        break  # Salimos del bucle si la respuesta es correcta
 
-                # Verificamos la longitud de la respuesta dependiendo de la columna
-                if column_name == 'chords' and (respuesta is None or len(respuesta) < 8):
-                    df.drop(i, inplace=True)  # Elimina la fila si tiene menos de 8 acordes
-                elif column_name == 'instruments' and (respuesta is None or len(respuesta) < 2):
-                    df.drop(i, inplace=True)  # Elimina la fila si tiene menos de 2 instrumentos
-                else:
-                    # Almacenamos la información procesada en el DataFrame
-                    df.at[i, column_name] = respuesta
-            
-            except Exception as e:
-                # Si ocurre un error, mostramos un mensaje y dejamos el campo como vacío
-                print(f"Error al obtener la información de la canción '{titulo}' de '{artista}': {e}")
+                except Exception as e:
+                    intentos += 1
+                    print(f"Error al obtener la información de la canción '{titulo}' de '{artista}' en el intento {intentos}: {e}")
+
+            # Si se exceden los intentos y no hay respuesta válida, dejamos el campo vacío
+            if intentos == max_retries:
+                print(f"No se pudo obtener información válida para '{titulo}' de '{artista}' después de {max_retries} intentos")
                 df.at[i, column_name] = ""
 
-        # Reseteamos los índices del DataFrame después de eliminar filas
+        # Reseteamos los índices del DataFrame después del proceso
         df.reset_index(drop=True, inplace=True)
 
     return df

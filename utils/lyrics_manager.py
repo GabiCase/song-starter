@@ -1,7 +1,7 @@
 import requests
 from utils.chat_gpt_manager import chat_gpt_theme
 import os
-import signal
+
 
 # Función para manejar el tiempo límite
 class TimeoutException(Exception):
@@ -9,9 +9,6 @@ class TimeoutException(Exception):
 
 def timeout_handler(signum, frame):
     raise TimeoutException
-
-# Configura el manejador de señales para el timeout
-signal.signal(signal.SIGALRM, timeout_handler)
 
 # Definición de la función para obtener las primeras cuatro líneas
 def get_first_lines(artist, title):
@@ -28,13 +25,13 @@ def get_first_lines(artist, title):
 
 
 def insert_lyrics_db(df):
+    import time
     df['theme'] = None  # Inicializar la columna 'theme' como None
 
     for index, row in df.iterrows():
         try:
             # Establecer la alarma para que se active en 5 segundos
-            signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(5)
+            time.sleep(5)
 
             # Intentar obtener el tema de la canción desde la API externa
             theme = get_first_lines(row['artists'], row['name'])
@@ -57,11 +54,8 @@ def insert_lyrics_db(df):
             print(f"Error al obtener el tema para {row['artists']} - {row['name']}: {e}")
             df.at[index, 'theme'] = "No se pudo obtener el tema"
 
-        finally:
-            # Desactivar la alarma para evitar que siga activa
-            signal.alarm(0)
 
-    return df
+    return df, theme
 
 
 
